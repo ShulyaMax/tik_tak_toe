@@ -3,18 +3,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tik_tak_toe/domain/entity/item_state.dart';
 
 class GridItem extends StatefulWidget {
-  final ValueNotifier<List<ItemState>> state;
-  final ValueNotifier<bool> isGameOver;
-  final int index;
+  final ValueNotifier<ItemState> state;
   final VoidCallback onTap;
 
-  const GridItem({
-    required this.state,
-    required this.onTap,
-    required this.index,
-    required this.isGameOver,
-    super.key,
-  });
+  const GridItem({required this.state, required this.onTap, super.key});
 
   @override
   State<GridItem> createState() => _GridItemState();
@@ -24,69 +16,78 @@ class _GridItemState extends State<GridItem>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
-  ItemState _itemState = ItemState.empty;
+  ItemState _cacheState = ItemState.empty;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 350),
       vsync: this,
     );
-    _animation = Tween<double>(begin: 0, end: 1).animate(_controller);
-
-    widget.state.addListener(() {
-      setState(() {
-        _itemState = widget.state.value[widget.index];
-        if (_itemState != ItemState.empty) {
-          _controller.forward();
-        }
-      });
-    });
-    widget.isGameOver.addListener(() {
-      setState(() {
-        if (_itemState != ItemState.empty) {
-          print('Game Over');
-          _controller.reverse();
-        }
-      });
-    });
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.bounceOut,
+      reverseCurve: Curves.ease,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: widget.onTap,
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           border: Border.all(color: Colors.blue),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Center(
-          child:
-              _itemState == ItemState.empty
-                  ? SizedBox()
-                  : AnimatedBuilder(
-                    animation: _animation,
-                    builder:
-                        (BuildContext context, Widget? child) =>
-                            SvgPicture.asset(
-                              _itemState == ItemState.x
-                                  ? 'assets/x.svg'
-                                  : 'assets/o.svg',
-                              width: 120 * _controller.value,
-                              height: 120 * _controller.value,
-
-                              colorFilter: ColorFilter.mode(
-                                _itemState == ItemState.x
-                                    ? Colors.red
-                                    : Colors.green,
-                                BlendMode.srcIn,
-                              ),
-                            ),
-                  ),
+          child: ValueListenableBuilder(
+            valueListenable: widget.state,
+            builder: (context, value, _) {
+              if (value != ItemState.empty) {
+                _cacheState = value;
+                _controller.forward();
+              } else {
+                _controller.reverse().then((_) {
+                  _cacheState = ItemState.empty;
+                });
+              }
+              return AnimatedBuilder(
+                animation: _animation,
+                builder: (context, _) {
+                  return SvgPicture.asset(
+                    value == ItemState.empty
+                        ? _cacheState == ItemState.x
+                            ? 'assets/x.svg'
+                            : 'assets/o.svg'
+                        : value == ItemState.x
+                        ? 'assets/x.svg'
+                        : 'assets/o.svg',
+                    width: 100 * _animation.value,
+                    height: 100 * _animation.value,
+                    colorFilter: ColorFilter.mode(
+                      getColor(value),
+                      BlendMode.srcIn,
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );
+  }
+
+  Color getColor(ItemState state) {
+    switch (state) {
+      case ItemState.x:
+        return Colors.red;
+      case ItemState.o:
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
   }
 }

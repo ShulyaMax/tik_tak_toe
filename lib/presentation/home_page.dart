@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tik_tak_toe/domain/entity/game_state.dart';
 import 'package:tik_tak_toe/domain/entity/item_state.dart';
 import 'package:tik_tak_toe/presentation/widgets/grid_item.dart';
 
@@ -10,10 +11,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final ValueNotifier<bool> isGameOver = ValueNotifier(false);
+  final ValueNotifier<GameState> isGameOver = ValueNotifier(GameState.progress);
   int step = 1;
-  final ValueNotifier<List<ItemState>> _items = ValueNotifier(
-    List.generate(9, (index) => ItemState.empty),
+  final List<ValueNotifier<ItemState>> _items = List.generate(
+    9,
+    (index) => ValueNotifier(ItemState.empty),
   );
 
   @override
@@ -34,11 +36,9 @@ class _HomePageState extends State<HomePage> {
                 ),
                 itemBuilder: (context, index) {
                   return GridItem(
-                    isGameOver: isGameOver,
-                    state: _items,
-                    index: index,
+                    state: _items[index],
                     onTap: () {
-                      if (isGameOver.value) return;
+                      if (isGameOver.value != GameState.progress) return;
                       _onItemTap(index);
                     },
                   );
@@ -48,7 +48,7 @@ class _HomePageState extends State<HomePage> {
                 valueListenable: isGameOver,
                 builder:
                     (context, value, _) =>
-                        value
+                        value != GameState.progress
                             ? Container(
                               decoration: BoxDecoration(
                                 color: Colors.black54,
@@ -59,9 +59,9 @@ class _HomePageState extends State<HomePage> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-                                      step > 9
+                                      isGameOver.value == GameState.draw
                                           ? 'It\'s a draw!'
-                                          : '${step % 2 == 0 ? 'O' : 'X'} Wins!',
+                                          : '${step % 2 == 0 ? 'X' : 'O'} Wins!',
                                       style: const TextStyle(
                                         fontSize: 40,
                                         color: Colors.white,
@@ -98,27 +98,33 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onItemTap(int index) {
-    final value = _items.value.toList();
-    if (value[index] == ItemState.empty) {
-      value[index] = step % 2 == 0 ? ItemState.x : ItemState.o;
+    if (_items[index].value == ItemState.empty) {
+      _items[index].value = step % 2 == 0 ? ItemState.o : ItemState.x;
       step++;
       if (step > 4) {
-        _checkWinner(value);
+        _checkWinner();
       }
-      if (step > 9) {
-        isGameOver.value = true;
+      if (step > 9 && isGameOver.value == GameState.progress) {
+        isGameOver.value = GameState.draw;
       }
-      _items.value = value;
     }
   }
 
-  void _checkWinner(List<ItemState> items) {
+  void _checkWinner() {
     // Check rows
     for (int i = 0; i < 3; i++) {
-      if (items[i * 3] != ItemState.empty &&
-          items[i * 3] == items[i * 3 + 1] &&
-          items[i * 3] == items[i * 3 + 2]) {
-        isGameOver.value = true;
+      if (_items[i * 3].value != ItemState.empty &&
+          _items[i * 3].value == _items[i * 3 + 1].value &&
+          _items[i * 3].value == _items[i * 3 + 2].value) {
+        for (var element in _items) {
+          if (_items.indexOf(element) == i * 3 ||
+              _items.indexOf(element) == i * 3 + 1 ||
+              _items.indexOf(element) == i * 3 + 2) {
+            continue;
+          }
+          element.value = ItemState.empty;
+        }
+        isGameOver.value = GameState.win;
 
         return;
       }
@@ -126,43 +132,61 @@ class _HomePageState extends State<HomePage> {
 
     // Check columns
     for (int i = 0; i < 3; i++) {
-      if (items[i] != ItemState.empty &&
-          items[i] == items[i + 3] &&
-          items[i] == items[i + 6]) {
-        isGameOver.value = true;
+      if (_items[i].value != ItemState.empty &&
+          _items[i].value == _items[i + 3].value &&
+          _items[i].value == _items[i + 6].value) {
+        for (var element in _items) {
+          if (_items.indexOf(element) == i ||
+              _items.indexOf(element) == i + 3 ||
+              _items.indexOf(element) == i + 6) {
+            continue;
+          }
+          element.value = ItemState.empty;
+        }
+        isGameOver.value = GameState.win;
 
         return;
       }
     }
 
     // Check diagonals
-    if (items[0] != ItemState.empty &&
-        items[0] == items[4] &&
-        items[0] == items[8]) {
-      for (var element in items) {
-        if (items.indexOf(element) == 0 ||
-            items.indexOf(element) == 4 ||
-            items.indexOf(element) == 8) {
+    if (_items[0].value != ItemState.empty &&
+        _items[0].value == _items[4].value &&
+        _items[0].value == _items[8].value) {
+      for (var element in _items) {
+        if (_items.indexOf(element) == 0 ||
+            _items.indexOf(element) == 4 ||
+            _items.indexOf(element) == 8) {
           continue;
         }
-        element = ItemState.empty;
+        element.value = ItemState.empty;
       }
-      isGameOver.value = true;
+      isGameOver.value = GameState.win;
 
       return;
     }
-    if (items[2] != ItemState.empty &&
-        items[2] == items[4] &&
-        items[2] == items[6]) {
-      isGameOver.value = true;
+    if (_items[2].value != ItemState.empty &&
+        _items[2].value == _items[4].value &&
+        _items[2].value == _items[6].value) {
+      for (var element in _items) {
+        if (_items.indexOf(element) == 2 ||
+            _items.indexOf(element) == 4 ||
+            _items.indexOf(element) == 6) {
+          continue;
+        }
+        element.value = ItemState.empty;
+      }
+      isGameOver.value = GameState.win;
 
       return;
     }
   }
 
   void _resetGame() {
-    isGameOver.value = false;
+    isGameOver.value = GameState.progress;
     step = 1;
-    _items.value = List.generate(9, (index) => ItemState.empty);
+    for (var element in _items) {
+      element.value = ItemState.empty;
+    }
   }
 }
