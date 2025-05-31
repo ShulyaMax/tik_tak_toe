@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:tik_tak_toe/domain/entity/game_state.dart';
 import 'package:tik_tak_toe/domain/entity/item_state.dart';
@@ -20,77 +22,95 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final minSide = min(size.width, size.height);
+    final fieldSize = min(minSide * 0.9, 420).toDouble();
+    final fontSize = fieldSize / 10;
+
     return Scaffold(
-      body: Center(
-        child: SizedBox.square(
-          dimension: 420,
-          child: Stack(
-            children: [
-              GridView.builder(
-                itemCount: 9,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 1.0,
-                ),
-                itemBuilder: (context, index) {
-                  return GridItem(
-                    state: _items[index],
-                    onTap: () {
-                      if (isGameOver.value != GameState.progress) return;
-                      _onItemTap(index);
-                    },
-                  );
-                },
-              ),
-              ValueListenableBuilder(
-                valueListenable: isGameOver,
-                builder:
-                    (context, value, _) =>
-                        value != GameState.progress
-                            ? Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(10),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Column(
+                  spacing: 30,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    ValueListenableBuilder(
+                      valueListenable: isGameOver,
+                      builder: (context, value, _) {
+                        return AnimatedOpacity(
+                          opacity: value == GameState.progress ? 0.0 : 1.0,
+                          duration: const Duration(milliseconds: 200),
+                          child: Text(
+                            value == GameState.draw
+                                ? 'draw!!!'
+                                : '${step % 2 == 0 ? 'X' : 'O'} you WIN!!!',
+                            key: ValueKey(value),
+                            style: TextStyle(
+                              height: 0.8,
+                              fontSize: fontSize,
+                              color: Colors.black,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    SizedBox(
+                      width: fieldSize,
+                      height: fieldSize,
+                      child: GridView.builder(
+                        itemCount: 9,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 1.0,
+                            ),
+                        itemBuilder: (context, index) {
+                          return GridItem(
+                            state: _items[index],
+                            onTap: () {
+                              if (isGameOver.value != GameState.progress) {
+                                return;
+                              }
+                              _onItemTap(index);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    ValueListenableBuilder(
+                      valueListenable: isGameOver,
+                      builder: (context, value, _) {
+                        return AnimatedOpacity(
+                          opacity: value == GameState.progress ? 0.0 : 1.0,
+                          duration: const Duration(milliseconds: 200),
+                          child: ElevatedButton(
+                            key: const ValueKey('restart'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            onPressed: _resetGame,
+                            child: Text(
+                              'Restart Game',
+                              style: TextStyle(
+                                fontSize: fontSize,
+                                color: Colors.white,
                               ),
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      isGameOver.value == GameState.draw
-                                          ? 'It\'s a draw!'
-                                          : '${step % 2 == 0 ? 'X' : 'O'} Wins!',
-                                      style: const TextStyle(
-                                        fontSize: 40,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 50,
-                                          vertical: 20,
-                                        ),
-                                      ),
-                                      onPressed: _resetGame,
-                                      child: Text(
-                                        'Restart',
-                                        style: TextStyle(
-                                          fontSize: 40,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                            : const SizedBox(),
-              ),
-            ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -111,73 +131,32 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _checkWinner() {
-    // Check rows
     for (int i = 0; i < 3; i++) {
       if (_items[i * 3].value != ItemState.empty &&
           _items[i * 3].value == _items[i * 3 + 1].value &&
           _items[i * 3].value == _items[i * 3 + 2].value) {
-        for (var element in _items) {
-          if (_items.indexOf(element) == i * 3 ||
-              _items.indexOf(element) == i * 3 + 1 ||
-              _items.indexOf(element) == i * 3 + 2) {
-            continue;
-          }
-          element.value = ItemState.empty;
-        }
         isGameOver.value = GameState.win;
-
         return;
       }
     }
-
-    // Check columns
     for (int i = 0; i < 3; i++) {
       if (_items[i].value != ItemState.empty &&
           _items[i].value == _items[i + 3].value &&
           _items[i].value == _items[i + 6].value) {
-        for (var element in _items) {
-          if (_items.indexOf(element) == i ||
-              _items.indexOf(element) == i + 3 ||
-              _items.indexOf(element) == i + 6) {
-            continue;
-          }
-          element.value = ItemState.empty;
-        }
         isGameOver.value = GameState.win;
-
         return;
       }
     }
-
-    // Check diagonals
     if (_items[0].value != ItemState.empty &&
         _items[0].value == _items[4].value &&
         _items[0].value == _items[8].value) {
-      for (var element in _items) {
-        if (_items.indexOf(element) == 0 ||
-            _items.indexOf(element) == 4 ||
-            _items.indexOf(element) == 8) {
-          continue;
-        }
-        element.value = ItemState.empty;
-      }
       isGameOver.value = GameState.win;
-
       return;
     }
     if (_items[2].value != ItemState.empty &&
         _items[2].value == _items[4].value &&
         _items[2].value == _items[6].value) {
-      for (var element in _items) {
-        if (_items.indexOf(element) == 2 ||
-            _items.indexOf(element) == 4 ||
-            _items.indexOf(element) == 6) {
-          continue;
-        }
-        element.value = ItemState.empty;
-      }
       isGameOver.value = GameState.win;
-
       return;
     }
   }
